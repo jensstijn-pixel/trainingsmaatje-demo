@@ -23,10 +23,24 @@ Verkenning voor de geparkeerde PT-app (ideeënlijst 4.1).
   - Qwen 2.5 1,5B: 3/5 goed (Chest press als vervanger van schouderdrukken, tijdvraag fout).
   - Qwen 3 1,7B: 4/5 goed, ~2 s tot het eerste woord, ~29 tokens/s. Tijdvraag fout → daarna
     opgelost met de tijdberekening in code.
-  - Gemma 2 2B: zie hieronder.
+  - Gemma 2 2B: 4/5 goed, maar zwaarder (1,5 GB) en trager (~3 s tot eerste woord, ~20 tokens/s).
+  - Na de tijdberekening (in het gebruikersbericht, niet in de systeemprompt — daar negeerde
+    Qwen 3 hem): "30 min" en "20 min" goed; "over 10 min weg" spreekt zichzelf nog tegen.
+- **Qwen 3 1,7B is de standaard.** Model draait in een Web Worker (`worker.js`): zonder worker
+  bevroor de pagina tijdens het laden.
+- Live: https://jensstijn-pixel.github.io/trainingsmaatje-demo/ (publieke repo
+  `jensstijn-pixel/trainingsmaatje-demo`, geen persoonsgegevens). Live getest op de Mac met
+  het 0,5B-model: laden + antwoorden werkt. Testmodellen daarna weer uit Chrome verwijderd.
+- Let op: GitHub Pages deelt één origin (`jensstijn-pixel.github.io`) met de Sportlog/Daily-app.
+  Andere cachenamen, dus geen conflict, maar opslag telt samen.
 - **Niet getest:** op een echte iPhone (Safari heeft WebGPU vanaf iOS 26). Geheugen is daar
   het risico bij de grotere modellen.
 
 ## Draaien
 - Lokaal: `python3 -m http.server 8765` in deze map, open http://localhost:8765
-- Live: GitHub Pages (zie README/onderaan zodra live).
+- Live: https://jensstijn-pixel.github.io/trainingsmaatje-demo/ (push naar `main`, Pages bouwt zelf)
+
+## Open punten
+- Jens test op zijn iPhone: laadt Qwen 3 zonder geheugenfout? Hoe snel? Is het Nederlands goed genoeg?
+- Als het een echte app wordt: meer vragen in code afvangen (tijd, rust, sets) en de AI alleen
+  voor de rest; inspreken in plaats van typen.
