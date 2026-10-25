@@ -51,7 +51,8 @@ Verkenning voor de geparkeerde PT-app (ideeënlijst 4.1).
   stond daar nog geregistreerd en zette alle modelbestanden (3,4 GB) in zijn eigen cache. Op
   25 okt afgemeld en gewist. Lokaal testen? Check eerst `navigator.serviceWorker.getRegistrations()`
   of gebruik een andere poort.
-- **Modellen echt van de Mac halen:** de knop in de demo markeert ze alleen als verwijderd. Ook
+- **Modellen echt van de Mac halen:** de knop in de demo wist de modelcache, maar er bleven
+  restjes over (kleine `tensor-cache.json`-bestanden, plus de SW-cache hierboven). Ook
   nodig: `caches.delete('webllm/...')` per origin, en de modelbestanden in Chrome's gewone
   HTTP-cache (`~/Library/Caches/Google/Chrome/Default/Cache`). Op 25 okt alles opgeruimd
   (Chrome-cache-opslag van 4,0 GB naar 0,6 GB, de rest is Gmail/Docs).
