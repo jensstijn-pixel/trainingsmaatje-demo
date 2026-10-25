@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0e0f0c">
+<meta name="color-scheme" content="dark">
+<title>Trainingsmaatje demo</title>
+<meta name="description" content="Demo: een gratis open AI-model dat op je telefoon draait en vragen beantwoordt tijdens het trainen.">
+<style>
+  :root {
+    --bg: #0e0f0c;
+    --card: #181a15;
+    --card-2: #20231c;
+    --line: #2c3026;
+    --text: #eef1e8;
+    --muted: #9aa190;
+    --accent: #cef952;
+    --accent-ink: #15180d;
+    --warn: #ffb35c;
+    --radius: 14px;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+    background: var(--bg);
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  }
+  button, [role="button"] {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  input, textarea, select { font-size: 16px; font-family: inherit; }
+
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 0;
+  }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  section { margin-top: 18px; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 8px; font-weight: 600;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+
+  /* Model */
+  .models { display: grid; gap: 8px; margin-bottom: 12px; }
+  .model {
+    display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
+    text-align: left; background: var(--card-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px;
+    transition: border-color 120ms var(--ease-out), transform 100ms var(--ease-out);
+  }
+  .model:active { transform: scale(0.98); }
+  .model[aria-pressed="true"] { border-color: var(--accent); }
+  .model b { font-weight: 600; }
+  .model small { color: var(--muted); grid-column: 1; }
+  .model .size { grid-row: 1 / span 2; grid-column: 2; align-self: center; color: var(--muted); font-size: 13px; text-align: right; }
+  .model .cached { color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 600;
+    background: var(--accent); color: var(--accent-ink);
+    transition: transform 100ms var(--ease-out), opacity 120ms;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .bar { height: 6px; border-radius: 6px; background: var(--card-2); overflow: hidden; margin-top: 12px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width 200ms linear; }
+  .status { color: var(--muted); font-size: 13px; margin-top: 8px; min-height: 1.4em; overflow-wrap: anywhere; }
+  .status.warn { color: var(--warn); }
+
+  /* Schema */
+  .ex { border-top: 1px solid var(--line); padding: 10px 0; }
+  .ex:first-of-type { border-top: 0; padding-top: 0; }
+  .ex-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+  .check {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line);
+    background: transparent; padding: 0; display: grid; place-items: center;
+    transition: background 120ms var(--ease-out), border-color 120ms;
+  }
+  .check:active { transform: scale(0.92); }
+  .ex.done .check { background: var(--accent); border-color: var(--accent); }
+  .ex.done .check::after { content: ""; width: 10px; height: 6px; border: 2px solid var(--accent-ink); border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+  .ex.done .ex-name { color: var(--muted); text-decoration: line-through; }
+  .ex-name { font-weight: 600; }
+  .ex-meta { color: var(--muted); font-size: 13px; }
+  .ex-swapped { color: var(--accent); font-size: 12px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--card-2); border-radius: 999px;
+    padding: 6px 12px; font-size: 13px; white-space: nowrap;
+    transition: transform 100ms var(--ease-out);
+  }
+  .chip:active { transform: scale(0.96); }
+  .alts { display: none; margin: 10px 0 0 36px; gap: 6px; }
+  .ex.open .alts { display: grid; }
+  .alt {
+    text-align: left; background: var(--card-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px;
+  }
+  .alt:active { transform: scale(0.98); }
+  .alt small { display: block; color: var(--muted); }
+  .alts-note { color: var(--muted); font-size: 12px; }
+
+  /* Chat */
+  .chat { display: grid; gap: 10px; }
+  .msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { justify-self: end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+  .msg.bot { justify-self: start; background: var(--card-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg .stats { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .suggest { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+  .suggest::-webkit-scrollbar { display: none; }
+
+  .composer {
+    position: sticky; bottom: 0; margin-top: 14px;
+    background: linear-gradient(to bottom, transparent, var(--bg) 22%);
+    padding: 18px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .composer form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .composer textarea {
+    resize: none; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+    color: var(--text); padding: 11px 12px; line-height: 1.35; max-height: 120px;
+  }
+  .composer textarea:focus { outline: none; border-color: var(--accent); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .model:hover, .alt:hover, .chip:hover { border-color: #4a5040; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Trainingsmaatje</h1>
+    <p>Demo · de AI draait op je eigen telefoon, gratis en zonder server</p>
+  </header>
+
+  <section>
+    <h2>1 · Kies een model</h2>
+    <div class="card">
+      <div class="models" id="models"></div>
+      <div class="row">
+        <button class="btn" id="load">Laad model</button>
+        <button class="btn ghost" id="forget" hidden>Verwijder van toestel</button>
+      </div>
+      <div class="bar" id="bar" hidden><div></div></div>
+      <div class="status" id="status">De eerste keer wordt het model gedownload, liefst via wifi. Daarna staat het op je telefoon.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Training van vandaag</h2>
+    <div class="card" id="schema"></div>
+  </section>
+
+  <section>
+    <h2>3 · Vraag het je maatje</h2>
+    <div class="suggest" id="suggest"></div>
+    <div class="chat" id="chat"><p class="empty">Laad eerst een model. De knop “Bezet” bij een oefening werkt ook zonder AI.</p></div>
+  </section>
+
+  <div class="composer">
+    <form id="form">
+      <textarea id="input" rows="1" placeholder="Bijv. de squatrek is bezet…" enterkeyhint="send" disabled></textarea>
+      <button class="btn" id="send" disabled>Stuur</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+// Exact versie vastgezet: een nieuwe release kan stil iets veranderen.
+const WEBLLM_URL = "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm";
+
+const MODELS = [
+  { key: "qwen05", name: "Qwen 2.5 · 0,5B", note: "Klein en snel, Nederlands matig", size: "≈ 280 MB",
+    ids: { f16: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-0.5B-Instruct-q4f32_1-MLC" } },
+  { key: "qwen15", name: "Qwen 2.5 · 1,5B", note: "Middenweg, iets minder goed dan Qwen 3", size: "≈ 870 MB",
+    ids: { f16: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", f32: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC" } },
+  { key: "qwen3", name: "Qwen 3 · 1,7B", note: "Beste in de test, begin hiermee", size: "≈ 970 MB",
+    ids: { f16: "Qwen3-1.7B-q4f16_1-MLC", f32: "Qwen3-1.7B-q4f32_1-MLC" }, noThinking: true },
+  { key: "gemma2", name: "Gemma 2 · 2B", note: "Ook goed, maar zwaarder en trager", size: "≈ 1,5 GB",
+    ids: { f16: "gemma-2-2b-it-q4f16_1-MLC", f32: "gemma-2-2b-it-q4f32_1-MLC" }, noSystem: true },
+];
+
+// Oefeningenbibliotheek: de bot mag alleen hieruit kiezen.
+const PATTERNS = {
+  squat: "Squat (benen)",
+  hpush: "Horizontaal duwen (borst)",
+  hpull: "Horizontaal trekken (rug)",
+  hinge: "Heupscharnier (hamstrings, billen)",
+  vpush: "Verticaal duwen (schouders)",
+  core: "Core (romp)",
+};
+const LIBRARY = [
+  { id: "backsquat", name: "Back squat", p: "squat", gear: "squatrek + stang", min: 3 },
+  { id: "goblet", name: "Goblet squat", p: "squat", gear: "dumbbell of kettlebell", min: 1.5 },
+  { id: "legpress", name: "Leg press", p: "squat", gear: "machine", min: 2 },
+  { id: "bss", name: "Bulgarian split squat", p: "squat", gear: "dumbbells + bank", min: 2.5 },
+  { id: "smithsquat", name: "Smith squat", p: "squat", gear: "smith machine", min: 2.5 },
+  { id: "lunges", name: "Walking lunges", p: "squat", gear: "dumbbells", min: 2 },
+
+  { id: "bench", name: "Bankdrukken", p: "hpush", gear: "bank + stang", min: 2.5 },
+  { id: "dbbench", name: "Dumbbell bench press", p: "hpush", gear: "dumbbells + bank", min: 2 },
+  { id: "chestpress", name: "Chest press", p: "hpush", gear: "machine", min: 1.5 },
+  { id: "cablepress", name: "Kabel chest press (staand)", p: "hpush", gear: "kabel", min: 1.5 },
+  { id: "pushup", name: "Push-ups", p: "hpush", gear: "lichaamsgewicht", min: 1 },
+
+  { id: "cablerow", name: "Seated cable row", p: "hpull", gear: "kabel", min: 1.5 },
+  { id: "dbrow", name: "Dumbbell row", p: "hpull", gear: "dumbbell + bank", min: 2 },
+  { id: "machinerow", name: "Chest-supported row", p: "hpull", gear: "machine", min: 1.5 },
+  { id: "bbrow", name: "Barbell row", p: "hpull", gear: "stang", min: 2 },
+  { id: "invrow", name: "Inverted row", p: "hpull", gear: "rek of TRX", min: 1.5 },
+
+  { id: "rdl", name: "Roemeense deadlift", p: "hinge", gear: "stang", min: 2 },
+  { id: "dbrdl", name: "Dumbbell RDL", p: "hinge", gear: "dumbbells", min: 1.5 },
+  { id: "hipthrust", name: "Hip thrust", p: "hinge", gear: "stang + bank", min: 2 },
+  { id: "kbswing", name: "Kettlebell swing", p: "hinge", gear: "kettlebell", min: 1 },
+  { id: "pullthrough", name: "Cable pull-through", p: "hinge", gear: "kabel", min: 1.5 },
+  { id: "backext", name: "Back extension", p: "hinge", gear: "hyperextension-bank", min: 1.5 },
+
+  { id: "dbpress", name: "Dumbbell schouderdrukken", p: "vpush", gear: "dumbbells + bank", min: 2 },
+  { id: "machinepress", name: "Shoulder press", p: "vpush", gear: "machine", min: 1.5 },
+  { id: "landmine", name: "Landmine press", p: "vpush", gear: "stang in hoek", min: 1.5 },
+  { id: "arnold", name: "Arnold press", p: "vpush", gear: "dumbbells", min: 2 },
+  { id: "pikepush", name: "Pike push-ups", p: "vpush", gear: "lichaamsgewicht", min: 1 },
+
+  { id: "plank", name: "Plank", p: "core", gear: "matje", min: 1 },
+  { id: "deadbug", name: "Dead bug", p: "core", gear: "matje", min: 1 },
+  { id: "pallof", name: "Pallof press", p: "core", gear: "kabel", min: 1 },
+  { id: "kneeraise", name: "Hanging knee raise", p: "core", gear: "optrekstang", min: 1 },
+  { id: "abwheel", name: "Ab wheel", p: "core", gear: "ab wheel", min: 1 },
+];
+const byId = Object.fromEntries(LIBRARY.map(e => [e.id, e]));
+
+const schema = [
+  { id: "backsquat", sets: 4, reps: "6", rest: "2–3 min" },
+  { id: "bench", sets: 4, reps: "8", rest: "2 min" },
+  { id: "cablerow", sets: 3, reps: "10", rest: "90 s" },
+  { id: "rdl", sets: 3, reps: "10", rest: "90 s" },
+  { id: "dbpress", sets: 3, reps: "10", rest: "90 s" },
+  { id: "plank", sets: 3, reps: "45 s", rest: "45 s" },
+].map(s => ({ ...s, original: s.id, done: false }));
+
+const $ = s => document.querySelector(s);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+let webllm = null;
+let engine = null;
+let loadedKey = null;
+let precision = "f32";
+let selectedKey = store.get("tm-model") || "qwen3";
+let busy = false;
+const history = [];
+
+/* ---------- Model kiezen en laden ---------- */
+
+async function detectGpu() {
+  if (!("gpu" in navigator)) {
+    setStatus("Deze browser heeft geen WebGPU. Op iPhone: iOS 26 of nieuwer (Safari). Op Android/laptop: Chrome. Het schema en de knop “Bezet” werken wel.", true);
+    $("#load").disabled = true;
+    return;
+  }
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) throw new Error("geen GPU-adapter");
+    precision = adapter.features.has("shader-f16") ? "f16" : "f32";
+  } catch (err) {
+    setStatus("WebGPU is er, maar de GPU is niet bereikbaar: " + err.message, true);
+    $("#load").disabled = true;
+  }
+}
+
+function modelId(m) { return m.ids[precision]; }
+
+async function renderModels() {
+  const box = $("#models");
+  box.innerHTML = "";
+  for (const m of MODELS) {
+    const b = document.createElement("button");
+    b.className = "model";
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(m.key === selectedKey));
+    b.innerHTML = `<b>${m.name}</b><small>${m.note}</small><span class="size">${m.size}</span>`;
+    b.onclick = () => { selectedKey = m.key; store.set("tm-model", m.key); renderModels(); };
+    box.append(b);
+  }
+  // Laat zien welke modellen al op het toestel staan (alleen als WebLLM al geladen is).
+  if (webllm) {
+    const buttons = box.querySelectorAll(".model");
+    let anyCached = false;
+    for (const [i, m] of MODELS.entries()) {
+      try {
+        if (await webllm.hasModelInCache(modelId(m))) {
+          anyCached = true;
+          buttons[i].querySelector(".size").innerHTML = `<span class="cached">op toestel</span>`;
+        }
+      } catch {}
+    }
+    $("#forget").hidden = !anyCached;
+  }
+  $("#load").textContent = loadedKey === selectedKey ? "Geladen ✓" : "Laad model";
+}
+
+async function getWebllm() {
+  if (!webllm) webllm = await import(WEBLLM_URL);
+  return webllm;
+}
+
+async function loadModel() {
+  if (busy) return;
+  const m = MODELS.find(x => x.key === selectedKey);
+  if (loadedKey === m.key) return;
+  busy = true;
+  $("#load").disabled = true;
+  $("#bar").hidden = false;
+  setProgress(0);
+  setStatus("Bibliotheek ophalen…");
+  const t0 = performance.now();
+  try {
+    const lib = await getWebllm();
+    const report = r => {
+      setProgress(r.progress ?? 0);
+      setStatus(cleanProgress(r.text));
+    };
+    if (engine) {
+      engine.setInitProgressCallback(report);
+      await engine.reload(modelId(m));
+    } else {
+      const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+      engine = await lib.CreateWebWorkerMLCEngine(worker, modelId(m), { initProgressCallback: report });
+    }
+    loadedKey = m.key;
+    history.length = 0;
+    const secs = ((performance.now() - t0) / 1000).toFixed(0);
+    setProgress(1);
+    setStatus(`${m.name} geladen in ${secs} s (${precision}). Stel je vraag.`);
+    enableChat(true);
+    renderChat();
+  } catch (err) {
+    console.error(err);
+    const msg = String(err?.message || err);
+    const hint = /memory|OOM|allocate|Device was lost/i.test(msg)
+      ? " Waarschijnlijk te weinig geheugen: probeer een kleiner model."
+      : "";
+    setStatus("Laden mislukt: " + msg + hint, true);
+    engine = null;
+    loadedKey = null;
+  } finally {
+    busy = false;
+    $("#load").disabled = false;
+    renderModels();
+  }
+}
+
+function cleanProgress(text = "") {
+  // WebLLM's voortgangstekst is Engels en lang; maak er iets leesbaars van.
+  const pct = text.match(/(\d+)% completed/);
+  const mb = text.match(/(\d+)MB (?:fetched|loaded)/);
+  if (/Fetching param cache|Loading model from cache/.test(text) && pct) {
+    return `Model ophalen: ${pct[1]}%${mb ? ` (${mb[1]} MB)` : ""}`;
+  }
+  if (/Loading GPU shader|shader/i.test(text)) return "Model klaarzetten op de GPU…";
+  if (/Finish loading/.test(text)) return "Bijna klaar…";
+  return text.slice(0, 140);
+}
+
+async function forgetModels() {
+  if (busy) return;
+  const lib = await getWebllm();
+  for (const m of MODELS) {
+    try { await lib.deleteModelAllInfoInCache(modelId(m)); } catch {}
+  }
+  if (engine) { try { await engine.unload(); } catch {} }
+  engine = null;
+  loadedKey = null;
+  enableChat(false);
+  setStatus("Modellen verwijderd van dit toestel.");
+  renderModels();
+}
+
+function setStatus(text, warn = false) {
+  const el = $("#status");
+  el.textContent = text;
+  el.classList.toggle("warn", warn);
+}
+function setProgress(p) { $("#bar > div").style.width = Math.round(p * 100) + "%"; }
+
+/* ---------- Schema + alternatieven zonder AI ---------- */
+
+function alternatives(item) {
+  const cur = byId[item.id];
+  const used = new Set(schema.map(s => s.id));
+  return LIBRARY
+    .filter(e => e.p === cur.p && !used.has(e.id))
+    .sort((a, b) => a.min - b.min)
+    .slice(0, 3);
+}
+
+function minutesFor(item) { return Math.round(byId[item.id].min * item.sets); }
+
+function renderSchema() {
+  const box = $("#schema");
+  box.innerHTML = "";
+  for (const [i, item] of schema.entries()) {
+    const ex = byId[item.id];
+    const el = document.createElement("div");
+    el.className = "ex" + (item.done ? " done" : "");
+    el.innerHTML = `
+      <div class="ex-head">
+        <button class="check" type="button" aria-label="Afvinken"></button>
+        <div>
+          <div class="ex-name">${ex.name}</div>
+          <div class="ex-meta">${item.sets} × ${item.reps} · rust ${item.rest} · ${ex.gear} · ±${minutesFor(item)} min</div>
+          ${item.id !== item.original ? `<div class="ex-swapped">vervangt ${byId[item.original].name}</div>` : ""}
+        </div>
+        <button class="chip" type="button">Bezet</button>
+      </div>
+      <div class="alts"></div>`;
+    el.querySelector(".check").onclick = () => { item.done = !item.done; renderSchema(); renderSuggestions(); };
+    el.querySelector(".chip").onclick = () => {
+      const alts = el.querySelector(".alts");
+      if (!el.classList.contains("open")) {
+        alts.innerHTML = `<span class="alts-note">Zelfde spiergroep, ander materiaal (snelste eerst). Tik om te wisselen:</span>`;
+        for (const a of alternatives(item)) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "alt";
+          b.innerHTML = `${a.name}<small>${a.gear} · ±${Math.round(a.min * item.sets)} min</small>`;
+          b.onclick = () => { item.id = a.id; renderSchema(); renderSuggestions(); };
+          alts.append(b);
+        }
+      }
+      el.classList.toggle("open");
+    };
+    box.append(el);
+  }
+  const left = schema.filter(s => !s.done).reduce((t, s) => t + minutesFor(s), 0);
+  const foot = document.createElement("div");
+  foot.className = "ex-meta";
+  foot.style.marginTop = "10px";
+  foot.textContent = left ? `Nog ±${left} min te gaan.` : "Alles afgevinkt. Lekker gewerkt.";
+  box.append(foot);
+}
+
+/* ---------- Chat met het model ---------- */
+
+function systemPrompt() {
+  // De code doet het denkwerk (welke alternatieven, hoeveel tijd); het model hoeft alleen
+  // te kiezen en het kort uit te leggen. Kleine modellen kunnen een lange lijst niet aan.
+  const todo = schema.filter(s => !s.done);
+  const plan = schema.map((s, i) => {
+    const e = byId[s.id];
+    if (s.done) return `${i + 1}. ${e.name} – al gedaan`;
+    const alts = alternatives(s).map(a => `${a.name} (${a.gear})`).join(", ");
+    return `${i + 1}. ${e.name} (${e.gear}) – ${s.sets}×${s.reps}, rust ${s.rest}, ±${minutesFor(s)} min. Vervangers: ${alts}`;
+  }).join("\n");
+  const left = todo.reduce((t, s) => t + minutesFor(s), 0);
+  const cutOrder = [...todo].reverse().map(s => byId[s.id].name).join(", ");
+  return `Je bent een trainingsmaatje in de sportschool, namens personal trainer Jens. Je helpt iemand tijdens de training. Antwoord in het Nederlands, kort en direct: maximaal 3 zinnen.
+
+Schema van vandaag:
+${plan}
+
+Nog te doen: ±${left} minuten.
+Te weinig tijd? Schrap in deze volgorde: ${cutOrder}. Of doe twee oefeningen om en om als superset.
+
+Regels:
+- Is iets bezet? Noem één vervanger uit de "Vervangers" van díe oefening, met sets en herhalingen. Noem eventueel een tweede als reserve.
+- Verzin nooit zelf oefeningen.
+- Bij pijn: stop met die oefening en bespreek het met Jens. Geef geen medisch advies.`;
+}
+
+// Noemt iemand een aantal minuten, dan rekent de code uit wat er nog past.
+function timeHint(text) {
+  const m = text.match(/(\d+)\s*(?:min|minuten|minuutjes)\b/i);
+  if (!m) return "";
+  const budget = Number(m[1]);
+  const keep = [], cut = [];
+  let used = 0;
+  for (const s of schema.filter(s => !s.done)) {
+    const t = minutesFor(s);
+    if (used + t <= budget) { keep.push(byId[s.id].name); used += t; }
+    else cut.push(byId[s.id].name);
+  }
+  if (!cut.length) return `\n\n(Berekening van de app: alles past in ${budget} minuten, je hebt ±${used} min nodig. Zeg dat.)`;
+  return `\n\n(Berekening van de app: in ${budget} minuten past nog ${keep.join(", ") || "niets meer"}, ±${used} min. Schrap ${cut.join(", ")}. Geef precies dit advies in één of twee zinnen.)`;
+}
+
+// Twee voorbeeldgesprekken: kleine modellen volgen een voorbeeld beter dan een regel.
+const EXAMPLES = [
+  { role: "user", content: "De kabel is bezet, wat doe ik in plaats van Seated cable row?" },
+  { role: "assistant", content: "Doe Chest-supported row op de machine: 3×10, rust 90 s. Is die ook bezet, pak dan Inverted row." },
+  { role: "user", content: "Mijn schouder doet pijn bij het drukken." },
+  { role: "assistant", content: "Stop met die oefening en sla hem vandaag over. Bespreek het met Jens voordat je hem weer doet." },
+];
+
+function buildMessages(userText) {
+  const m = MODELS.find(x => x.key === loadedKey);
+  // Alleen de laatste paar beurten meesturen: houdt het snel op een telefoon.
+  const recent = history
+    .filter(h => (h.role === "user" || h.role === "assistant") && !h.failed)
+    .slice(-4)
+    .map(({ role, content }) => ({ role, content }));
+  while (recent[0]?.role === "assistant") recent.shift();
+  const sys = systemPrompt();
+  // De berekening staat bij de vraag zelf: daar letten kleine modellen het meest op.
+  const msgs = [...EXAMPLES, ...recent, { role: "user", content: userText + timeHint(userText) }];
+  if (m.noSystem) {
+    // Gemma heeft geen echte systeemrol: zet de instructies in het eerste gebruikersbericht.
+    msgs[0] = { role: "user", content: sys + "\n\nVraag: " + msgs[0].content };
+    return msgs;
+  }
+  return [{ role: "system", content: sys }, ...msgs];
+}
+
+async function ask(text) {
+  text = text.trim();
+  if (!text || !engine || busy) return;
+  busy = true;
+  enableChat(false);
+  const userMsg = { role: "user", content: text };
+  history.push(userMsg);
+  const reply = { role: "assistant", content: "", stats: "aan het nadenken…" };
+  renderChat(reply);
+  const m = MODELS.find(x => x.key === loadedKey);
+  const t0 = performance.now();
+  let tFirst = null;
+  try {
+    const req = {
+      messages: buildMessages(text),
+      stream: true,
+      stream_options: { include_usage: true },
+      temperature: 0.4,
+      max_tokens: 220,
+    };
+    if (m.noThinking) req.extra_body = { enable_thinking: false };
+    const chunks = await engine.chat.completions.create(req);
+    let usage = null;
+    for await (const c of chunks) {
+      const d = c.choices?.[0]?.delta?.content;
+      if (d) {
+        if (tFirst === null) tFirst = performance.now();
+        reply.content += d;
+        reply.content = reply.content.replace(/<think>[\s\S]*?<\/think>\s*/g, "");
+        reply.stats = "";
+        renderChat(reply);
+      }
+      if (c.usage) usage = c.usage;
+    }
+    const total = (performance.now() - t0) / 1000;
+    const first = tFirst ? ((tFirst - t0) / 1000).toFixed(1) : "–";
+    const tps = usage?.extra?.decode_tokens_per_s;
+    reply.content = reply.content.trim();
+    reply.stats = `eerste woord na ${first} s · klaar na ${total.toFixed(1)} s` + (tps ? ` · ${tps.toFixed(0)} tokens/s` : "");
+    history.push(reply);
+  } catch (err) {
+    console.error(err);
+    userMsg.failed = true;
+    history.push({ role: "error", content: "Er ging iets mis: " + (err?.message || err) });
+  } finally {
+    renderChat();
+    busy = false;
+    enableChat(true);
+  }
+}
+
+function renderChat(live = null) {
+  const box = $("#chat");
+  box.innerHTML = "";
+  const items = live ? [...history, live] : history;
+  if (!items.length) {
+    box.innerHTML = `<p class="empty">${engine ? "Tik op een voorbeeldvraag of typ je eigen vraag." : "Laad eerst een model. De knop “Bezet” bij een oefening werkt ook zonder AI."}</p>`;
+    return;
+  }
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "msg " + (it.role === "user" ? "user" : "bot");
+    el.textContent = (it.content || "…").replace(/\*\*/g, "");
+    if (it.stats) {
+      const s = document.createElement("span");
+      s.className = "stats";
+      s.textContent = it.stats;
+      el.append(s);
+    }
+    box.append(el);
+  }
+  if (live) window.scrollTo({ top: document.body.scrollHeight });
+}
+
+function renderSuggestions() {
+  const next = schema.find(s => !s.done);
+  const ideas = [];
+  if (next) ideas.push(`De plek voor ${byId[next.id].name} is bezet. Wat doe ik in plaats daarvan?`);
+  ideas.push("Ik heb nog maar 20 minuten. Wat schrap ik?");
+  ideas.push("Mijn onderrug voelt raar bij de Roemeense deadlift.");
+  ideas.push("Hoeveel rust moet ik nemen bij bankdrukken?");
+  const box = $("#suggest");
+  box.innerHTML = "";
+  for (const q of ideas) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = q;
+    b.onclick = () => ask(q);
+    b.disabled = !engine || busy;
+    box.append(b);
+  }
+}
+
+function enableChat(on) {
+  const ready = on && !!engine;
+  $("#input").disabled = !ready;
+  $("#send").disabled = !ready;
+  $("#suggest").querySelectorAll("button").forEach(b => (b.disabled = !ready));
+}
+
+$("#form").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("#input").value;
+  $("#input").value = "";
+  autoGrow();
+  ask(v);
+});
+$("#input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("#form").requestSubmit(); }
+});
+function autoGrow() { const t = $("#input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }
+$("#input").addEventListener("input", autoGrow);
+$("#load").onclick = loadModel;
+$("#forget").onclick = forgetModels;
+
+renderSchema();
+renderSuggestions();
+enableChat(false);
+await detectGpu();
+await renderModels();
+// WebLLM op de achtergrond ophalen, zodat we kunnen tonen welke modellen al op het toestel staan.
+getWebllm().then(renderModels).catch(() => {});
+</script>
+</body>
+</html>
