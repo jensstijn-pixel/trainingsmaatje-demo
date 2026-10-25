@@ -40,6 +40,23 @@ Verkenning voor de geparkeerde PT-app (ideeënlijst 4.1).
 - Lokaal: `python3 -m http.server 8765` in deze map, open http://localhost:8765
 - Live: https://jensstijn-pixel.github.io/trainingsmaatje-demo/ (push naar `main`, Pages bouwt zelf)
 
+## Valkuilen
+- **Opslag op iOS is niet blijvend.** Safari wist websiteopslag (ook het model) na 7 dagen
+  zonder bezoek. Een beginscherm-app heeft die regel niet, maar heeft wél eigen opslag los van
+  Safari (dus opnieuw downloaden). Bij een volle telefoon kan iOS alsnog opruimen. Een echte
+  app moet het model dus altijd opnieuw kunnen ophalen.
+- **Nooit "Websitegegevens wissen" voor `jensstijn-pixel.github.io`**: dat raakt ook Daily.
+  Gebruik de knop "Verwijder van toestel".
+- **Oude service worker op `localhost:8765`:** de `sw.js` van Bregje-games (cache `bregje-v7`)
+  stond daar nog geregistreerd en zette alle modelbestanden (3,4 GB) in zijn eigen cache. Op
+  25 okt afgemeld en gewist. Lokaal testen? Check eerst `navigator.serviceWorker.getRegistrations()`
+  of gebruik een andere poort.
+- **Modellen echt van de Mac halen:** de knop in de demo markeert ze alleen als verwijderd. Ook
+  nodig: `caches.delete('webllm/...')` per origin, en de modelbestanden in Chrome's gewone
+  HTTP-cache (`~/Library/Caches/Google/Chrome/Default/Cache`). Op 25 okt alles opgeruimd
+  (Chrome-cache-opslag van 4,0 GB naar 0,6 GB, de rest is Gmail/Docs).
+- Chrome-automatisering time-out (45 s) tijdens het laden van een model; korte polls gebruiken.
+
 ## Open punten
 - Jens test op zijn iPhone: laadt Qwen 3 zonder geheugenfout? Hoe snel? Is het Nederlands goed genoeg?
 - Als het een echte app wordt: meer vragen in code afvangen (tijd, rust, sets) en de AI alleen
